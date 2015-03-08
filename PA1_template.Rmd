@@ -5,7 +5,6 @@ output:
     keep_md: true
 ---
 
-
 ## Loading and preprocessing the data
 We start with the data as a zip file. We need to use the `unz()` function to access the CSV file in the zip:
 
@@ -77,7 +76,61 @@ day; in other words, `r clockTimeForMinutes(maxMeanStepsIntervalStart)`.
 
 
 ## Imputing missing values
+It's very easy to find the number of rows with NA values:
+```{r}
+sum(is.na(activityTable))
+```
 
+Let's take a look at where the NA values are. Let's sum up the NA values per day:
+
+```{r}
+naTable <- activityTable
+naTable$isNa <- is.na(naTable$steps)
+# remove the steps column so that aggregate/sum doesn't skip over a day of all NAs:
+naTable <- subset(naTable, select=-steps)
+naStepsPerDay <- aggregate(. ~ date, data=naTable, FUN=sum)
+levels(as.factor(naStepsPerDay$isNa))
+```
+
+The number of intervals a day is 288 (24 hours times 12 five-minute interval per hour). So this means that every
+day has either full data or no data at all.
+
+I'm going to choose the following strategy: any missing day will use the average of the day before and the day after. As it turns out, two of the missing days are the first day and the last day; in those cases we'll use the values for the second day and the second-to-last day, respectively.
+
+```{r}
+# I'm sure there's a cleaner, more vector-y way to do this, but this gets the job done:
+imputedActivityTable <- activityTable
+for (i in 1:nrow(imputedActivityTable)) {
+        steps <- imputedActivityTable[i, "steps"]
+        if (is.na(steps)) {
+                interval <- imputedActivityTable[i, "intervalStartInMinutes"]
+                date <- imputedActivityTable[i, "date"]
+                yesterdayInterval <- (imputedActivityTable$date == date - 1 &
+                                             imputedActivityTable$intervalStartInMinutes == interval)
+                tomorrowInterval <- (imputedActivityTable$date == date + 1 &
+                                             imputedActivityTable$intervalStartInMinutes == interval)
+                newSteps = c(imputedActivityTable[yesterdayInterval, "steps"],
+                             imputedActivityTable[tomorrowInterval, "steps"])
+                imputedActivityTable[i, "steps"] <- mean(newSteps, na.rm=T)
+        }
+}
+# Verify that we don't have any NAs left:
+if (sum(is.na(imputedActivityTable)) > 0) {
+        stop("Interpolation function did not fill in all gaps; investigate. Probably a run of three or more
+             NA-days.")
+}
+
+# Now repeat the analysis in the first step with our new dataset:
+stepsPerDayImputed <- aggregate(. ~ date, data=imputedActivityTable, FUN=sum)
+meanStepsPerDayImputed <- mean(stepsPerDayImputed[, "steps"])
+medianStepsPerDayImputed <- as.integer(median(stepsPerDayImputed[, "steps"]))
+hist(stepsPerDayImputed[, "steps"], 8, xlab="Steps per day", ylab="Number of days",
+     main="Histogram of number of steps per day (imputed dataset)")
+```
+
+The mean steps per day is `r sprintf("%.1f", meanStepsPerDayImputed)` and the median is
+`r medianStepsPerDayImputed`. We can see that these values are lower than those in step 1; imputing the
+missing data has lowered our estimates of total daily steps.
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
