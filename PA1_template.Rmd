@@ -7,7 +7,31 @@ output:
 
 
 ## Loading and preprocessing the data
+We start with the data as a zip file. We need to create a tempfile in R and use the `unz()`
+function to access the CSV file in the zip:
 
+```{r}
+activityTable <- read.csv(unz("activity.zip", "activity.csv"))
+str(activityTable)
+```
+
+Now we need to pre-process the data in a couple of different ways. First of all, the dates are factors. We want them as dates. Secondly, the intervals are integers, but they represent clock values (135 represents 1:35 am - you'll notice there is no 60 or 160 interval). We want to turn those into true integers - the number of minutes since the start of the day. We effect these two transformations like so:
+
+```{r}
+activityTable$date <- as.Date(activityTable$date)
+# This one's a little more complicated - interpret it as a string, break into two, then
+# back into an integer:
+minutesSinceStartOfDay <- function(intervalAsClockTime) {
+        intervalString <- toString(intervalAsClockTime)
+        stringLength <- nchar(intervalString)
+        if (stringLength <= 2) {
+                # This is easy; no hour (hour = 0), so just return our input
+                return(intervalAsClockTime)
+        }
+        minutes <- as.integer(substr(intervalString, stringLength - 1, stringLength))
+        hours <- as.integer(substr(intervalString, 1, stringLength - 2))
+        return(hours * 60 + minutes)
+}
 
 
 ## What is mean total number of steps taken per day?
