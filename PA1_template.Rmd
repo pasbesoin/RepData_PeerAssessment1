@@ -49,10 +49,10 @@ str(activityTable)
 To calculate the total number of steps per day, we group by day and sum steps. We'll create a histogram and
 calculate the mean and median.
 ```{r}
-stepsPerDay <- aggregate(. ~ date, data=activityTable, FUN=sum)
-meanStepsPerDay <- mean(stepsPerDay[, "steps"])
-medianStepsPerDay <- as.integer(median(stepsPerDay[, "steps"]))
-hist(stepsPerDay[, "steps"], 8, xlab="Steps per day", ylab="Number of days",
+stepsPerDay <- aggregate(. ~ date, data=activityTable, FUN=sum)[, "steps"]
+meanStepsPerDay <- mean(stepsPerDay)
+medianStepsPerDay <- as.integer(median(stepsPerDay))
+hist(stepsPerDay, 8, xlab="Steps per day", ylab="Number of days",
      main="Histogram of number of steps per day")
 ```
 
@@ -134,10 +134,10 @@ if (sum(is.na(imputedActivityTable)) > 0) {
 }
 
 # Now repeat the analysis in the first step with our new dataset:
-stepsPerDayImputed <- aggregate(. ~ date, data=imputedActivityTable, FUN=sum)
-meanStepsPerDayImputed <- mean(stepsPerDayImputed[, "steps"])
-medianStepsPerDayImputed <- as.integer(median(stepsPerDayImputed[, "steps"]))
-hist(stepsPerDayImputed[, "steps"], 8, xlab="Steps per day", ylab="Number of days",
+stepsPerDayImputed <- aggregate(. ~ date, data=imputedActivityTable, FUN=sum)[, "steps"]
+meanStepsPerDayImputed <- mean(stepsPerDayImputed)
+medianStepsPerDayImputed <- as.integer(median(stepsPerDayImputed))
+hist(stepsPerDayImputed, 8, xlab="Steps per day", ylab="Number of days",
      main="Histogram of number of steps per day (imputed dataset)")
 ```
 
