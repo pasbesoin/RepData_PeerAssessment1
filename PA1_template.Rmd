@@ -14,7 +14,8 @@ str(activityTable)
 ```
 
 Now we need to pre-process the data in a couple of different ways. First of all, the dates are factors. We want
-them as dates. Secondly, the intervals are integers, but they represent clock values (135 represents 1:35 am -
+them as Date objects. Secondly, the intervals are integers, but they represent clock values (135 represents
+1:35 am -
 you'll notice there is no 60 or 160 interval). We want to turn those into true integers - the number of minutes
 since the start of the day. We effect these two transformations like so:
 
@@ -77,7 +78,7 @@ axis(1, seq(0, 24 * 60, 180), sapply(seq(0, 24 * 60, 180), clockTimeForMinutes))
 The interval with the most steps, on average, is `maxMeanStepsIntervalStart` = `r maxMeanStepsIntervalStart`
 minutes from the start of the day; in other words, `r clockTimeForMinutes(maxMeanStepsIntervalStart)` (`clockTimeForMinutes(maxMeanStepsIntervalStart)`).
 
-Notice that this graph does not have little horizontal jags the way that the example image does in the
+Note that this graph does not have little horizontal jags the way that the example image does in the
 Github README file. Those jags are from the gaps introduced by treating the clock-time interval as an integer
 - there are gaps between 55 and 100, 155 and 200, and so on. This graph avoids those jags by treating intervals
 as "minutes since the start of the day". This is the reason for that preprocessing step.
@@ -101,9 +102,11 @@ levels(as.factor(naStepsPerDay$isNa))
 ```
 
 The number of intervals in a day is 288 (24 hours times 12 five-minute intervals per hour). So this means
-that every day has either full data or no data at all.
+that every day has either full data or no data at all. Therefore a strategy of looking at neighbouring
+intervals is not going to work.
 
-I'm going to choose the following strategy: any missing day will use the average of the day before and the day
+I'm going to choose the following strategy: any missing interval will use the average of the values at the same
+interval from the day before and the day
 after. As it turns out, two of the missing days are the first day and the last day; in those cases (by using
 the `na.rm=T` option to `mean()`), this algorithm will just use the values for the second day and the
 second-to-last day, respectively.
@@ -150,8 +153,7 @@ compare the two:
 
 ```{r}
 daytype <- function(date) {
-        day <- weekdays(date)
-        if (day %in% c("Saturday", "Sunday")) {
+        if (weekdays(date) %in% c("Saturday", "Sunday")) {
                 return("weekend")
         } else {
                 return("weekday")
