@@ -111,7 +111,7 @@ after. As it turns out, two of the missing days are the first day and the last d
 the `na.rm=T` option to `mean()`), this algorithm will just use the values for the second day and the
 second-to-last day, respectively.
 
-```{r}
+```{r cache=T}
 # I'm sure there's a cleaner, more vector-y way to do this, but this gets the job done:
 imputedActivityTable <- activityTable
 for (i in 1:nrow(imputedActivityTable)) {
