@@ -1,5 +1,5 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
+title: "Reproducible Research: Peer Assessment 1 by Martin Baker"
 output: 
   html_document:
     keep_md: true
@@ -23,18 +23,19 @@ activityTable$date <- as.Date(activityTable$date)
 # This one's a little more complicated - interpret it as a string, break into two, then
 # back into an integer:
 minutesSinceStartOfDay <- function(intervalAsClockTime) {
-        intervalString <- toString(intervalAsClockTime)
-        stringLength <- nchar(intervalString)
-        if (stringLength <= 2) {
+        if (intervalAsClockTime < 100) {
                 # This is easy; no hour (hour = 0), so just return our input
                 return(intervalAsClockTime)
         }
-        minutes <- as.integer(substr(intervalString, stringLength - 1, stringLength))
+        intervalString <- toString(intervalAsClockTime)
+        stringLength <- nchar(intervalString)    # will be at least 3
         hours <- as.integer(substr(intervalString, 1, stringLength - 2))
+        minutes <- as.integer(substr(intervalString, stringLength - 1, stringLength))
         return(hours * 60 + minutes)
 }
-# For future use:
+# For future use, to convert back to clock time as needed:
 clockTimeForMinutes <- function(totalMinutes) {
+        totalMinutes <- totalMinutes %% (24 * 60)
         hours <- trunc(totalMinutes / 60)
         minutes <- totalMinutes %% 60
         sprintf("%02d:%02d", hours, minutes)
@@ -45,7 +46,7 @@ str(activityTable)
 ```
 ## What is mean total number of steps taken per day?
 To calculate the total number of steps per day, we group by day and sum steps. We'll create a histogram and
-output the mean and median.
+calculate the mean and median.
 ```{r}
 stepsPerDay <- aggregate(. ~ date, data=activityTable, FUN=sum)
 meanStepsPerDay <- mean(stepsPerDay[, "steps"])
@@ -54,7 +55,8 @@ hist(stepsPerDay[, "steps"], 8, xlab="Steps per day", ylab="Number of days",
      main="Histogram of number of steps per day")
 ```
 
-The mean steps per day is `r sprintf("%.1f", meanStepsPerDay)` and the median is `r medianStepsPerDay`.
+The mean steps per day is `sprintf("%.1f", meanStepsPerDay)` = `r sprintf("%.1f", meanStepsPerDay)` and the
+median is `medianStepsPerDay` = `r medianStepsPerDay`.
 These are very similar, so we can infer that the data is evenly divided around the mean (the histogram
 supports this).
 
@@ -68,11 +70,17 @@ maxMeanStepsIndex <- which.max(meanStepsPerInterval$steps)
 maxMeanStepsIntervalStart <- meanStepsPerInterval[maxMeanStepsIndex, "intervalStartInMinutes"]
 
 plot(meanStepsPerInterval$intervalStartInMinutes, meanStepsPerInterval$steps, type="l",
-     xlab="Minutes since start of day", ylab="Number of steps", main="Mean steps for each interval")
+     xlab="Time", ylab="Number of steps", main="Mean steps for each interval", xaxt='n')
+axis(1, seq(0, 24 * 60, 180), sapply(seq(0, 24 * 60, 180), clockTimeForMinutes))
 ```
 
-The interval with the most steps, on average, is `r maxMeanStepsIntervalStart` minutes from the start of the
-day; in other words, `r clockTimeForMinutes(maxMeanStepsIntervalStart)`.
+The interval with the most steps, on average, is `maxMeanStepsIntervalStart` = `r maxMeanStepsIntervalStart`
+minutes from the start of the day; in other words, `r clockTimeForMinutes(maxMeanStepsIntervalStart)` (`clockTimeForMinutes(maxMeanStepsIntervalStart)`).
+
+Notice that this graph does not have little horizontal jags the way that the example image does in the
+Github README file. Those jags are from the gaps introduced by treating the clock-time interval as an integer
+- there are gaps between 55 and 100, 155 and 200, and so on. This graph avoids those jags by treating intervals
+as "minutes since the start of the day". This is the reason for that preprocessing step.
 
 
 ## Imputing missing values
@@ -92,26 +100,28 @@ naStepsPerDay <- aggregate(. ~ date, data=naTable, FUN=sum)
 levels(as.factor(naStepsPerDay$isNa))
 ```
 
-The number of intervals a day is 288 (24 hours times 12 five-minute interval per hour). So this means that every
-day has either full data or no data at all.
+The number of intervals in a day is 288 (24 hours times 12 five-minute intervals per hour). So this means
+that every day has either full data or no data at all.
 
-I'm going to choose the following strategy: any missing day will use the average of the day before and the day after. As it turns out, two of the missing days are the first day and the last day; in those cases we'll use the values for the second day and the second-to-last day, respectively.
+I'm going to choose the following strategy: any missing day will use the average of the day before and the day
+after. As it turns out, two of the missing days are the first day and the last day; in those cases (by using
+the `na.rm=T` option to `mean()`), this algorithm will just use the values for the second day and the
+second-to-last day, respectively.
 
 ```{r}
 # I'm sure there's a cleaner, more vector-y way to do this, but this gets the job done:
 imputedActivityTable <- activityTable
 for (i in 1:nrow(imputedActivityTable)) {
-        steps <- imputedActivityTable[i, "steps"]
-        if (is.na(steps)) {
+        if (is.na(imputedActivityTable[i, "steps"])) {
                 interval <- imputedActivityTable[i, "intervalStartInMinutes"]
                 date <- imputedActivityTable[i, "date"]
                 yesterdayInterval <- (imputedActivityTable$date == date - 1 &
                                              imputedActivityTable$intervalStartInMinutes == interval)
                 tomorrowInterval <- (imputedActivityTable$date == date + 1 &
                                              imputedActivityTable$intervalStartInMinutes == interval)
-                newSteps = c(imputedActivityTable[yesterdayInterval, "steps"],
-                             imputedActivityTable[tomorrowInterval, "steps"])
-                imputedActivityTable[i, "steps"] <- mean(newSteps, na.rm=T)
+                neighbouringDaySteps = c(imputedActivityTable[yesterdayInterval, "steps"],
+                                         imputedActivityTable[tomorrowInterval, "steps"])
+                imputedActivityTable[i, "steps"] <- mean(neighbouringDaySteps, na.rm=T)
         }
 }
 # Verify that we don't have any NAs left:
@@ -128,9 +138,42 @@ hist(stepsPerDayImputed[, "steps"], 8, xlab="Steps per day", ylab="Number of day
      main="Histogram of number of steps per day (imputed dataset)")
 ```
 
-The mean steps per day is `r sprintf("%.1f", meanStepsPerDayImputed)` and the median is
+The mean steps per day is `sprintf("%.1f", meanStepsPerDayImputed)` =
+`r sprintf("%.1f", meanStepsPerDayImputed)` and the median is `medianStepsPerDayImputed` =
 `r medianStepsPerDayImputed`. We can see that these values are lower than those in step 1; imputing the
-missing data has lowered our estimates of total daily steps.
-
+missing data has lowered our estimates of mean total daily steps.
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+Let's create a new column with a value of either "weekend" or "weekday" and then create a panel plot to
+compare the two:
+
+```{r}
+daytype <- function(date) {
+        day <- weekdays(date)
+        if (day %in% c("Saturday", "Sunday")) {
+                return("weekend")
+        } else {
+                return("weekday")
+        }
+}
+imputedActivityTable$daytype <- as.factor(sapply(imputedActivityTable$date, daytype))
+
+meanStepsPerIntervalPerDaytype <- aggregate(. ~ intervalStartInMinutes + daytype,
+                                            data=imputedActivityTable, FUN=mean)
+
+library(lattice)
+xyplot(steps ~ intervalStartInMinutes | daytype, meanStepsPerIntervalPerDaytype, type="l", layout=c(1,2),
+       xlab="Time", ylab="Number of steps", main="Mean steps for each interval, weekend vs weekday",
+       scales=list(
+               x=list(
+                       at=seq(0, 24 * 60, 180),
+                       labels=sapply(seq(0, 24 * 60, 180), clockTimeForMinutes))))
+```
+
+The two plots have a similar shape, but we can see some differences. The early-morning peak is higher on
+weekdays and starts earlier, presumably reflecting a earlier wake time and travel to work. Far more of the
+remaining intervals are low on the weekdays compared to the weekend, perhaps a result of a sedentary work
+environment during the week. The evening peak occurs later on the weekend. This may reflect staying up later
+on the weekend, although to investigate that question it would make sense to alter the analysis to group
+Friday night with the weekend and Sunday night with the weekdays.
